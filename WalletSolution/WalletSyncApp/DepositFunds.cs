@@ -17,41 +17,48 @@ namespace WalletSyncApp
     public static class DepositFunds
     {
         [FunctionName("DepositFunds")]
-        public static IActionResult Run([HttpTrigger(AuthorizationLevel.Anonymous, "post")]HttpRequest req, [Table("Wallet", Connection = "AzureWebJobsStorage")]ICollector<Person> outTable, TraceWriter log)
+        public static IActionResult Run(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post")]HttpRequest req, 
+            [Table("XingZenDeposits", Connection = "AzureWebJobsStorage")] ICollector<Deposit> depositsTable, 
+            [Queue("xingzenadjustbalance", Connection = "AzureWebJobsStorage")] ICollector<string> adjustBalanceQueue,
+            TraceWriter log)
         {
-            string name = req.Query["name"];
+            string wallet = req.Query["wallet"];
+
+            string amount = req.Query["amount"];
+            string currency = req.Query["currency"];
 
             string requestBody = new StreamReader(req.Body).ReadToEnd();
             dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
+            wallet = wallet ?? data?.wallet;
+            amount = amount ?? data?.amount;
+            currency = currency ?? data?.currency;
 
-            // dynamic data = await req.Content.ReadAsAsync<object>();
-            // string name = data?.name;
-
-            if (name == null)
+            if (wallet == null || amount == null || currency == null)
             {
-                return new BadRequestObjectResult("Please pass a name in the request body");
+                return new BadRequestObjectResult("Please pass wallet, amount and currency in the request body");
             }
 
-            outTable.Add(new Person()
+            var deposit = new Deposit()
             {
-                PartitionKey = "Functions",
+                PartitionKey = "Wallet-" + wallet,
                 RowKey = Guid.NewGuid().ToString(),
-                Name = name
-            });
+                Amount = Convert.ToDouble(amount),
+                Currency = currency
+            };
 
-            return name != null
-                ? (ActionResult)new OkObjectResult($"Hello, {name}")
-                : new BadRequestObjectResult("Please pass a name on the query string or in the request body");
+            depositsTable.Add(deposit);
 
+            adjustBalanceQueue.Add(JsonConvert.SerializeObject(deposit));
 
-
-            // return req.CreateResponse(HttpStatusCode.Created);
+            return new OkObjectResult($"Added {amount} {currency} to {wallet}");
         }
 
-        public class Person : TableEntity
+        public class Deposit : TableEntity
         {
-            public string Name { get; set; }
+            public double Amount { get; set; }
+
+            public string Currency { get; set; }
         }
     }
 }
