@@ -1,15 +1,7 @@
-using System;
-using System.Net;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.WindowsAzure.Storage.Table;
-
-using System.IO;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 
 namespace WalletSyncApp
@@ -18,13 +10,14 @@ namespace WalletSyncApp
     {
         [FunctionName("AdjustBalance")]
         public async static Task Run(
-            [QueueTrigger("xingzenadjustbalance", Connection = "AzureWebJobsStorage")]string myQueueItem,
+            [QueueTrigger("xingzenadjustbalance", Connection = "AzureWebJobsStorage")]string adjustBalanceItem,
             [Table("XingZenFunds", Connection = "AzureWebJobsStorage")] CloudTable fundsTable,
+            [Queue("XingZenWebCallWorkerQueue", Connection = "AzureWebJobsStorage")] ICollector<string> webCallWorkerQueue,
             TraceWriter log)
         {
-            log.Info($"AdjustBalance: {myQueueItem}");
+            log.Info($"AdjustBalance: {adjustBalanceItem}");
 
-            var deposit = JsonConvert.DeserializeObject<Deposit>(myQueueItem);
+            var deposit = JsonConvert.DeserializeObject<Deposit>(adjustBalanceItem);
 
             log.Info($"Deposit: {JsonConvert.SerializeObject(deposit)}");
 
@@ -33,14 +26,17 @@ namespace WalletSyncApp
             TableOperation operation = TableOperation.Retrieve<Fund>(deposit.PartitionKey, deposit.Currency);
             TableResult result = await fundsTable.ExecuteAsync(operation);
 
+            double newBalance = 0.0;
+
             if (result.Result != null)
             {
                 var fund = (Fund)result.Result;
                 fund.Balance += deposit.Amount;
-                fund.ETag = "*";
+                fund.ETag = fund.ETag;
 
                 operation = TableOperation.Replace(fund);
                 await fundsTable.ExecuteAsync(operation);
+                newBalance = fund.Balance;
             }
             else
             {
@@ -54,7 +50,12 @@ namespace WalletSyncApp
 
                 operation = TableOperation.Insert(fund);
                 await fundsTable.ExecuteAsync(operation);
+                newBalance = fund.Balance;
             }
+
+            var wc = new WebCall() { Url = $"http://localhost:5000/transactions/notifyStoreBalance?storeId={deposit.PartitionKey.Replace("Wallet-", "")}&balance={newBalance}&currency={deposit.Currency}" };
+
+            webCallWorkerQueue.Add(JsonConvert.SerializeObject(wc));
         }
     }
 
@@ -69,4 +70,16 @@ namespace WalletSyncApp
     {
         public double Balance { get; set; }
     }
+
+
+    /*
+    public class WebCall
+    {
+        public string Url { get; set; }
+
+        public string Method { get; set; }
+
+        public string Data { get; set; }
+    }
+    */
 }

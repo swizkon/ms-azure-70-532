@@ -18,4 +18,7 @@
   <ItemGroup>
     <Compile Remove="gggg.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="WebCallWorker\" />
+  </ItemGroup>
 </Project>
