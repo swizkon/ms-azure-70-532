@@ -10,7 +10,7 @@ namespace WalletSyncApp
 {
     public static class WebCallWorkerFunc
     {
-        static private HttpClient httpClient = new HttpClient();
+        static readonly HttpClient httpClient = new HttpClient();
 
         [FunctionName("PerformWebCall")]
         public async static Task Run(
