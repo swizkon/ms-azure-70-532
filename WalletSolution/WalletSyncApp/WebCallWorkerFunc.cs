@@ -17,10 +17,11 @@ namespace WalletSyncApp
             [QueueTrigger("XingZenWebCallWorkerQueue", Connection = "AzureWebJobsStorage")]string webCallData,
             TraceWriter log)
         {
-            var webCall = JsonConvert.DeserializeObject<WebCall>(webCallData);
+            // log.Verbose("FunctionName: PerformWebCall");
 
             log.Info($"Deposit: {JsonConvert.SerializeObject(webCall)}");
 
+            var webCall = JsonConvert.DeserializeObject<WebCall>(webCallData);
             await httpClient.PostAsync(webCall.Url, new StringContent(""));
         }
     }

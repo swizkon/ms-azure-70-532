@@ -23,6 +23,8 @@ namespace WalletSyncApp
             [Queue("xingzenadjustbalance", Connection = "AzureWebJobsStorage")] ICollector<string> adjustBalanceQueue,
             TraceWriter log)
         {
+            log.Verbose("FunctionName: DepositFunds");
+
             string wallet = req.Query["wallet"];
 
             string amount = req.Query["amount"];
@@ -33,6 +35,7 @@ namespace WalletSyncApp
             wallet = wallet ?? data?.wallet;
             amount = amount ?? data?.amount;
             currency = currency ?? data?.currency;
+
 
             if (wallet == null || amount == null || currency == null)
             {

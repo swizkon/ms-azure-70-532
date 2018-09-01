@@ -26,7 +26,7 @@ namespace WalletSyncApp
             TableOperation operation = TableOperation.Retrieve<Fund>(deposit.PartitionKey, deposit.Currency);
             TableResult result = await fundsTable.ExecuteAsync(operation);
 
-            double newBalance = 0.0;
+            decimal newBalance = 0.0;
 
             if (result.Result != null)
             {
@@ -61,7 +61,7 @@ namespace WalletSyncApp
 
     public class Deposit : TableEntity
     {
-        public double Amount { get; set; }
+        public decimal Amount { get; set; }
 
         public string Currency { get; set; }
     }
